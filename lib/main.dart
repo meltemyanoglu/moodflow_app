@@ -13,369 +13,579 @@ class MoodFlowApp extends StatelessWidget {
       title: 'MoodFlow',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        fontFamily: 'Arial',
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const MoodFlowHome(),
     );
   }
 }
 
 class Mood {
   final String name;
-  final String emoji;
   final String description;
+  final String imageUrl;
 
   const Mood({
     required this.name,
-    required this.emoji,
     required this.description,
+    required this.imageUrl,
   });
 }
 
-class MusicRecommendation {
+class MusicItem {
   final String title;
   final String subtitle;
-  final String mood;
+  final String imageUrl;
 
-  const MusicRecommendation({
+  const MusicItem({
     required this.title,
     required this.subtitle,
-    required this.mood,
+    required this.imageUrl,
   });
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class MoodFlowHome extends StatefulWidget {
+  const MoodFlowHome({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<MoodFlowHome> createState() => _MoodFlowHomeState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  Mood? selectedMood;
+class _MoodFlowHomeState extends State<MoodFlowHome> {
+  int selectedMoodIndex = 0;
   final TextEditingController journalController = TextEditingController();
 
   final List<Mood> moods = const [
     Mood(
       name: 'Calm',
-      emoji: '🌿',
       description: 'Soft, peaceful, relaxed',
+      imageUrl:
+          'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80',
     ),
     Mood(
       name: 'Happy',
-      emoji: '☀️',
       description: 'Bright, positive, uplifting',
+      imageUrl:
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
     ),
     Mood(
       name: 'Melancholic',
-      emoji: '🌙',
       description: 'Emotional, reflective, slow',
+      imageUrl:
+          'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=800&q=80',
     ),
     Mood(
       name: 'Energetic',
-      emoji: '⚡',
       description: 'Fast, active, motivated',
+      imageUrl:
+          'https://images.unsplash.com/photo-1549476464-37392f717541?auto=format&fit=crop&w=800&q=80',
     ),
   ];
 
-  List<MusicRecommendation> getRecommendations() {
-    if (selectedMood == null) return [];
-
-    switch (selectedMood!.name) {
-      case 'Calm':
-        return const [
-          MusicRecommendation(
-            title: 'Ambient Focus',
-            subtitle: 'Soft textures and slow soundscapes',
-            mood: 'Calm',
-          ),
-          MusicRecommendation(
-            title: 'Peaceful Piano',
-            subtitle: 'Minimal piano pieces for relaxation',
-            mood: 'Calm',
-          ),
-        ];
-      case 'Happy':
-        return const [
-          MusicRecommendation(
-            title: 'Sunny Pop',
-            subtitle: 'Upbeat songs with warm melodies',
-            mood: 'Happy',
-          ),
-          MusicRecommendation(
-            title: 'Feel Good Indie',
-            subtitle: 'Light and cheerful indie tracks',
-            mood: 'Happy',
-          ),
-        ];
-      case 'Melancholic':
-        return const [
-          MusicRecommendation(
-            title: 'Late Night Reflections',
-            subtitle: 'Emotional songs for quiet moments',
-            mood: 'Melancholic',
-          ),
-          MusicRecommendation(
-            title: 'Soft Acoustic Mood',
-            subtitle: 'Gentle guitar and intimate vocals',
-            mood: 'Melancholic',
-          ),
-        ];
-      case 'Energetic':
-        return const [
-          MusicRecommendation(
-            title: 'Workout Energy',
-            subtitle: 'Fast beats for motivation',
-            mood: 'Energetic',
-          ),
-          MusicRecommendation(
-            title: 'Electronic Boost',
-            subtitle: 'Dynamic electronic tracks',
-            mood: 'Energetic',
-          ),
-        ];
-      default:
-        return [];
-    }
-  }
-
-  @override
-  void dispose() {
-    journalController.dispose();
-    super.dispose();
-  }
+  final List<MusicItem> musicItems = const [
+    MusicItem(
+      title: 'Deep Focus',
+      subtitle: 'Ambient · 50 tracks',
+      imageUrl:
+          'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=400&q=80',
+    ),
+    MusicItem(
+      title: 'Peaceful Piano',
+      subtitle: 'Piano · 32 tracks',
+      imageUrl:
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80',
+    ),
+    MusicItem(
+      title: 'Nature Sounds',
+      subtitle: 'Relaxation · 40 tracks',
+      imageUrl:
+          'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=400&q=80',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final recommendations = getRecommendations();
+    final selectedMood = moods[selectedMoodIndex];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F6FF),
-      appBar: AppBar(
-        title: const Text(
-          'MoodFlow',
-          style: TextStyle(fontWeight: FontWeight.bold),
+      backgroundColor: const Color(0xFFFAF8FF),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _header(),
+              const SizedBox(height: 28),
+              _intro(),
+              const SizedBox(height: 24),
+              _moodGrid(),
+              const SizedBox(height: 30),
+              _sectionTitle('Daily Journal', Icons.notes_rounded),
+              const SizedBox(height: 12),
+              _journalBox(),
+              const SizedBox(height: 22),
+              _saveButton(),
+              const SizedBox(height: 32),
+              _selectedMoodCard(selectedMood),
+              const SizedBox(height: 26),
+              _sectionTitle('Recommended for you', Icons.music_note_rounded),
+              const SizedBox(height: 14),
+              ...musicItems.map((item) => _musicCard(item)),
+            ],
+          ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'How are you feeling today?',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
+      bottomNavigationBar: _bottomNav(),
+    );
+  }
+
+  Widget _header() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          'MoodFlow',
+          style: TextStyle(
+            fontSize: 29,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF14133B),
+          ),
+        ),
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE5DFFF)),
+          ),
+          child: const Icon(Icons.person_outline_rounded),
+        ),
+      ],
+    );
+  }
+
+  Widget _intro() {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'How are you\nfeeling today?',
+          style: TextStyle(
+            fontSize: 36,
+            height: 1.08,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF161633),
+          ),
+        ),
+        SizedBox(height: 12),
+        Text(
+          'Choose your mood and get personalized music suggestions.',
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.5,
+            color: Color(0xFF6F6B80),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _moodGrid() {
+    return GridView.builder(
+      itemCount: moods.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 18,
+        mainAxisSpacing: 18,
+        childAspectRatio: 0.82,
+      ),
+      itemBuilder: (context, index) {
+        final mood = moods[index];
+        final isSelected = selectedMoodIndex == index;
+
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              selectedMoodIndex = index;
+            });
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+              border: Border.all(
+                color: isSelected ? Colors.white : Colors.transparent,
+                width: 3,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Choose your mood and get a personalized music suggestion.',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: moods.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 14,
-                crossAxisSpacing: 14,
-                childAspectRatio: 1.15,
-              ),
-              itemBuilder: (context, index) {
-                final mood = moods[index];
-                final isSelected = selectedMood?.name == mood.name;
-
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedMood = mood;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.all(16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    mood.imageUrl,
+                    fit: BoxFit.cover,
+                  ),
+                  Container(
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.deepPurple : Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.05),
+                          Colors.black.withOpacity(0.75),
+                        ],
+                      ),
                     ),
+                  ),
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    child: Container(
+                      width: 25,
+                      height: 25,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        color: isSelected
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.1),
+                      ),
+                      child: isSelected
+                          ? const Icon(
+                              Icons.check,
+                              size: 16,
+                              color: Color(0xFF6B3FD6),
+                            )
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 18,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          mood.emoji,
-                          style: const TextStyle(fontSize: 34),
-                        ),
-                        const Spacer(),
-                        Text(
                           mood.name,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : Colors.black,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
                           mood.description,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isSelected
-                                ? Colors.white.withOpacity(0.85)
-                                : Colors.black54,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.35,
+                            color: Colors.white,
                           ),
                         ),
                       ],
                     ),
                   ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 28),
-
-            const Text(
-              'Daily Journal',
-              style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.bold,
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+          ),
+        );
+      },
+    );
+  }
 
-            TextField(
-              controller: journalController,
-              minLines: 4,
-              maxLines: 6,
-              decoration: InputDecoration(
-                hintText: 'Write a few words about your mood...',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
+  Widget _sectionTitle(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFF6B3FD6)),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 23,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF171733),
+          ),
+        ),
+      ],
+    );
+  }
 
-            const SizedBox(height: 24),
-
-            ElevatedButton(
-              onPressed: selectedMood == null
-                  ? null
-                  : () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Mood saved: ${selectedMood!.name}',
-                          ),
-                        ),
-                      );
-                    },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 54),
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              child: const Text(
-                'Save Mood',
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            if (selectedMood != null) ...[
-              Text(
-                'Music for ${selectedMood!.name}',
-                style: const TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              ...recommendations.map(
-                (music) => Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.music_note,
-                          color: Colors.deepPurple,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              music.title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              music.subtitle,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
+  Widget _journalBox() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFEDE8FF)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: journalController,
+        maxLines: 5,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintText: 'Write a few words about your mood...',
+          hintStyle: TextStyle(color: Color(0xFF8D889A)),
         ),
       ),
+    );
+  }
+
+  Widget _saveButton() {
+    return Container(
+      width: double.infinity,
+      height: 58,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF7C4DFF),
+            Color(0xFF5E35B1),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6B3FD6).withOpacity(0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mood saved successfully')),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
+        icon: const Icon(Icons.bookmark_rounded),
+        label: const Text(
+          'Save Mood',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _selectedMoodCard(Mood mood) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE4DCFF)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 66,
+            height: 66,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF7C4DFF), Color(0xFF4527A0)],
+              ),
+            ),
+            child: const Icon(
+              Icons.music_note_rounded,
+              color: Colors.white,
+              size: 34,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'Good choice!\n${mood.name} vibes. Let’s enjoy some peaceful tunes.',
+              style: const TextStyle(
+                fontSize: 16,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF22203A),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _musicCard(MusicItem item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.network(
+              item.imageUrl,
+              width: 74,
+              height: 74,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF171733),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  item.subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF777184),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDFF7FF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Calm',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF1687A7),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEDE5FF),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color: Color(0xFF6B3FD6),
+              size: 30,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bottomNav() {
+    return Container(
+      height: 82,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 18,
+            offset: const Offset(0, -6),
+          ),
+        ],
+      ),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _NavItem(icon: Icons.home_rounded, label: 'Home', active: true),
+          _NavItem(icon: Icons.history_rounded, label: 'History'),
+          _NavItem(icon: Icons.bar_chart_rounded, label: 'Stats'),
+          _NavItem(icon: Icons.person_outline_rounded, label: 'Profile'),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          color: active ? const Color(0xFF6B3FD6) : const Color(0xFF2F2D3B),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: active ? const Color(0xFF6B3FD6) : const Color(0xFF2F2D3B),
+            fontSize: 12,
+            fontWeight: active ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -7,7 +7,7 @@ A mobile app prototype for mood journaling and emotion-based music recommendatio
 - Journaling
 - Music recommendations
 
-Roadmap
+## Roadmap
 - Multi-screen navigation
 - Mood analytics
 - Spotify integration
