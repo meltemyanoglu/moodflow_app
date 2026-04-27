@@ -258,7 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${mood.name} kaydedildi'),
+        content: Text('${mood.name} saved!'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -307,13 +307,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('${item.title} oynatılıyor (demo)'),
+                      content: Text('${item.title} playing.. (demo)'),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Şimdi çal'),
+                label: const Text('Play Now'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6B3FD6),
                   foregroundColor: Colors.white,
@@ -736,7 +736,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('${item.title} oynatılıyor (demo)'),
+                        content: Text('${item.title} playing.. (demo)'),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );

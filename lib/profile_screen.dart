@@ -36,7 +36,7 @@ class ProfileScreen extends StatelessWidget {
                     Expanded(
                       child: _statTile(
                         icon: Icons.bookmark_rounded,
-                        label: 'Toplam kayıt',
+                        label: 'Total Entries',
                         value: '$total',
                       ),
                     ),
@@ -45,7 +45,7 @@ class ProfileScreen extends StatelessWidget {
                       child: _statTile(
                         icon: Icons.local_fire_department_rounded,
                         label: 'Streak',
-                        value: '$streak gün',
+                        value: '$streak days',
                       ),
                     ),
                   ],
@@ -53,24 +53,24 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 _statTile(
                   icon: Icons.favorite_rounded,
-                  label: 'En sık mood',
+                  label: 'Most Frequent Mood',
                   value: mostFrequent,
                 ),
                 const SizedBox(height: 22),
                 _settingsTile(
                   icon: Icons.notifications_outlined,
-                  title: 'Bildirimler',
-                  onTap: () => _showSnack(context, 'Bildirim ayarları (demo)'),
+                  title: 'Notifications',
+                  onTap: () => _showSnack(context, 'Notification settings (demo)'),
                 ),
                 _settingsTile(
                   icon: Icons.color_lens_outlined,
-                  title: 'Tema',
-                  onTap: () => _showSnack(context, 'Tema seçimi (demo)'),
+                  title: 'Theme',
+                  onTap: () => _showSnack(context, 'Theme selection (demo)'),
                 ),
                 _settingsTile(
                   icon: Icons.help_outline_rounded,
-                  title: 'Yardım & Destek',
-                  onTap: () => _showSnack(context, 'Destek sayfası (demo)'),
+                  title: 'Help & Support',
+                  onTap: () => _showSnack(context, 'Help & Support (demo)'),
                 ),
                 const SizedBox(height: 22),
                 OutlinedButton.icon(
@@ -78,7 +78,7 @@ class ProfileScreen extends StatelessWidget {
                       ? null
                       : () => _confirmReset(context),
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Tüm verileri sıfırla'),
+                  label: const Text('Reset All Data'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFCC4A4A),
                     side: const BorderSide(color: Color(0xFFFFC7C7)),
@@ -218,14 +218,14 @@ class ProfileScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tüm verileri sıfırla'),
+        title: const Text('Reset All Data'),
         content: const Text(
-          'Tüm mood kayıtların silinecek. Bu işlem geri alınamaz.',
+          'All mood entries will be deleted. This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Vazgeç'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
@@ -233,7 +233,7 @@ class ProfileScreen extends StatelessWidget {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Tüm kayıtlar silindi'),
+                  content: Text('All records deleted'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -241,7 +241,7 @@ class ProfileScreen extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFCC4A4A),
             ),
-            child: const Text('Sıfırla'),
+            child: const Text('Reset'),
           ),
         ],
       ),

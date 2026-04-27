@@ -25,8 +25,8 @@ class HistoryScreen extends StatelessWidget {
     final diff = today.difference(dayDate).inDays;
     final hh = d.hour.toString().padLeft(2, '0');
     final mm = d.minute.toString().padLeft(2, '0');
-    if (diff == 0) return 'Bugün $hh:$mm';
-    if (diff == 1) return 'Dün $hh:$mm';
+    if (diff == 0) return 'Today $hh:$mm';
+    if (diff == 1) return 'Yesterday $hh:$mm';
     return '${d.day}.${d.month}.${d.year} $hh:$mm';
   }
 
@@ -184,12 +184,12 @@ class HistoryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             const Text(
-              'Henüz kayıt yok',
+              'No entries yet',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 8),
             const Text(
-              'Home sayfasından bir mood seçip "Save Mood" ile kaydetmeye başla.',
+              'Select a mood from the Home screen and save it to start logging.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Color(0xFF6F6B80), height: 1.4),
             ),
