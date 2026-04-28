@@ -163,4 +163,3 @@ moodflow_app/
 
 ## License
 
-Prototype — no license specified. Treat as private/personal until a license is added.
