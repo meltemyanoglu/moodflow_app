@@ -8,9 +8,7 @@ import 'screens/history_screen.dart';
 import 'screens/profile_screen.dart';
 
 Future<void> main() async {
-  // Required before touching any platform plugin (SharedPreferences here).
   WidgetsFlutterBinding.ensureInitialized();
-  // Load persisted moods BEFORE the first frame so screens render with data.
   await MoodStore.instance.load();
   runApp(const MoodFlowApp());
 }
@@ -33,19 +31,19 @@ class MoodFlowApp extends StatelessWidget {
   }
 }
 
-// ---------- MOOD MODEL ----------
-
 class Mood {
   final String name;
   final String description;
   final IconData icon;
   final List<Color> gradient;
+  final String imagePath;
 
   const Mood({
     required this.name,
     required this.description,
     required this.icon,
     required this.gradient,
+    required this.imagePath,
   });
 }
 
@@ -55,28 +53,30 @@ const kMoods = <Mood>[
     description: 'Soft, peaceful, relaxed',
     icon: Icons.spa_rounded,
     gradient: [Color(0xFF7C4DFF), Color(0xFF5E35B1)],
+    imagePath: 'assets/images/calm.jpg',
   ),
   Mood(
     name: 'Happy',
     description: 'Bright, positive, uplifting',
     icon: Icons.wb_sunny_rounded,
     gradient: [Color(0xFFFFB74D), Color(0xFFFF7043)],
+    imagePath: 'assets/images/happy.jpg',
   ),
   Mood(
     name: 'Melancholic',
     description: 'Emotional, reflective, slow',
     icon: Icons.water_drop_rounded,
     gradient: [Color(0xFF5C6BC0), Color(0xFF3949AB)],
+    imagePath: 'assets/images/melancholic.jpg',
   ),
   Mood(
     name: 'Energetic',
     description: 'Fast, active, motivated',
     icon: Icons.bolt_rounded,
     gradient: [Color(0xFFFF6F61), Color(0xFFD81B60)],
+    imagePath: 'assets/images/energetic.jpg',
   ),
 ];
-
-// ---------- MAIN SCAFFOLD (BOTTOM NAV) ----------
 
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
@@ -88,7 +88,9 @@ class MainScaffold extends StatefulWidget {
 class _MainScaffoldState extends State<MainScaffold> {
   int _currentIndex = 0;
 
-  void _goTo(int index) => setState(() => _currentIndex = index);
+  void _goTo(int index) {
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +105,7 @@ class _MainScaffoldState extends State<MainScaffold> {
       backgroundColor: const Color(0xFFFAF8FF),
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: _currentIndex, children: pages),
+        child: pages[_currentIndex],
       ),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
@@ -117,7 +119,10 @@ class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
-  const _BottomNav({required this.currentIndex, required this.onTap});
+  const _BottomNav({
+    required this.currentIndex,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -127,6 +132,7 @@ class _BottomNav extends StatelessWidget {
       (Icons.bar_chart_rounded, 'Stats'),
       (Icons.person_outline_rounded, 'Profile'),
     ];
+
     return Container(
       height: 82,
       decoration: BoxDecoration(
@@ -170,6 +176,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = active ? const Color(0xFF6B3FD6) : const Color(0xFF8C8AA0);
+
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -194,11 +201,13 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ---------- HOME ----------
-
 class HomeScreen extends StatefulWidget {
   final VoidCallback onOpenProfile;
-  const HomeScreen({super.key, required this.onOpenProfile});
+
+  const HomeScreen({
+    super.key,
+    required this.onOpenProfile,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -208,25 +217,29 @@ class _HomeScreenState extends State<HomeScreen> {
   int selectedMoodIndex = 0;
   final TextEditingController journalController = TextEditingController();
 
+  Mood get _selectedMood => kMoods[selectedMoodIndex];
+
   @override
   void dispose() {
     journalController.dispose();
     super.dispose();
   }
 
-  Mood get _selectedMood => kMoods[selectedMoodIndex];
-
   Future<void> _saveMood() async {
     final mood = _selectedMood;
+
     await MoodStore.instance.add(
       MoodEntry.create(
         moodName: mood.name,
         note: journalController.text.trim(),
       ),
     );
+
     if (!mounted) return;
+
     journalController.clear();
     FocusScope.of(context).unfocus();
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${mood.name} saved!'),
@@ -270,12 +283,6 @@ class _HomeScreenState extends State<HomeScreen> {
               journalController.selection = TextSelection.collapsed(
                 offset: prompt.length,
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Prompt added to your journal'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
             },
           ),
           const SizedBox(height: 28),
@@ -295,10 +302,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ---------- HOME PIECES ----------
-
 class _Header extends StatelessWidget {
   final VoidCallback onOpenProfile;
+
   const _Header({required this.onOpenProfile});
 
   @override
@@ -323,7 +329,7 @@ class _Header extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE5DFFF)),
+              border: Border.all(color: Color(0xFFE5DFFF)),
             ),
             child: const Icon(Icons.person_outline_rounded),
           ),
@@ -367,7 +373,11 @@ class _Intro extends StatelessWidget {
 class _MoodGrid extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
-  const _MoodGrid({required this.selectedIndex, required this.onSelect});
+
+  const _MoodGrid({
+    required this.selectedIndex,
+    required this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -383,92 +393,168 @@ class _MoodGrid extends StatelessWidget {
       ),
       itemBuilder: (context, index) {
         final mood = kMoods[index];
-        final isSelected = selectedIndex == index;
-        return GestureDetector(
+
+        return _MoodCard(
+          mood: mood,
+          isSelected: selectedIndex == index,
           onTap: () => onSelect(index),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: mood.gradient,
+        );
+      },
+    );
+  }
+}
+
+class _MoodCard extends StatefulWidget {
+  final Mood mood;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _MoodCard({
+    required this.mood,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_MoodCard> createState() => _MoodCardState();
+}
+
+class _MoodCardState extends State<_MoodCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final mood = widget.mood;
+    final isSelected = widget.isSelected;
+    final accent = mood.gradient.last;
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : isSelected ? 1.025 : 1.0,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? accent.withOpacity(0.34)
+                    : Colors.black.withOpacity(0.12),
+                blurRadius: isSelected ? 24 : 14,
+                spreadRadius: isSelected ? 1 : 0,
+                offset: const Offset(0, 10),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: mood.gradient.last.withOpacity(isSelected ? 0.4 : 0.18),
-                  blurRadius: isSelected ? 22 : 12,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-              border: Border.all(
-                color: isSelected ? Colors.white : Colors.transparent,
-                width: 3,
-              ),
+            ],
+            border: Border.all(
+              color: isSelected
+                  ? Colors.white.withOpacity(0.95)
+                  : Colors.transparent,
+              width: isSelected ? 3 : 0,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.22),
-                        borderRadius: BorderRadius.circular(14),
+                Image.asset(
+                  mood.imagePath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: mood.gradient,
                       ),
-                      child: Icon(mood.icon, color: Colors.white),
-                    ),
-                    if (isSelected)
-                      Container(
-                        width: 26,
-                        height: 26,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.check_rounded,
-                          size: 18,
-                          color: mood.gradient.last,
-                        ),
-                      ),
-                  ],
-                ),
-                const Spacer(),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    mood.name,
-                    maxLines: 1,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  mood.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.3,
-                    color: Colors.white,
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.02),
+                        mood.gradient.last.withOpacity(0.58),
+                        Colors.black.withOpacity(0.56),
+                      ],
+                    ),
+                  ),
+                ),
+                if (isSelected)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(26),
+                        gradient: RadialGradient(
+                          center: Alignment.topRight,
+                          radius: 1.1,
+                          colors: [
+                            Colors.white.withOpacity(0.14),
+                            accent.withOpacity(0.10),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 18,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          mood.name,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: -0.3,
+                            shadows: [
+                              Shadow(
+                                color: Color(0x66000000),
+                                blurRadius: 7,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        mood.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.3,
+                          color: Colors.white.withOpacity(0.94),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -476,6 +562,7 @@ class _MoodGrid extends StatelessWidget {
 class _SectionTitle extends StatelessWidget {
   final String title;
   final IconData icon;
+
   const _SectionTitle(this.title, this.icon);
 
   @override
@@ -501,6 +588,7 @@ class _SectionTitle extends StatelessWidget {
 
 class _JournalBox extends StatelessWidget {
   final TextEditingController controller;
+
   const _JournalBox({required this.controller});
 
   @override
@@ -534,6 +622,7 @@ class _JournalBox extends StatelessWidget {
 
 class _SaveMoodButton extends StatelessWidget {
   final VoidCallback onPressed;
+
   const _SaveMoodButton({required this.onPressed});
 
   @override
@@ -574,20 +663,21 @@ class _SaveMoodButton extends StatelessWidget {
   }
 }
 
-// ---------- MOOD SUGGESTIONS ----------
-
 class _MoodSuggestions extends StatelessWidget {
   final Mood mood;
   final ValueChanged<String> onUsePrompt;
 
-  const _MoodSuggestions({required this.mood, required this.onUsePrompt});
+  const _MoodSuggestions({
+    required this.mood,
+    required this.onUsePrompt,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final svc = MusicRecommendationService.instance;
-    final selfCare = svc.getSelfCareSuggestion(mood.name);
-    final prompt = svc.getJournalingPrompt(mood.name);
-    final breath = svc.getBreathingSuggestion(mood.name);
+    final service = MusicRecommendationService.instance;
+    final selfCare = service.getSelfCareSuggestion(mood.name);
+    final prompt = service.getJournalingPrompt(mood.name);
+    final breath = service.getBreathingSuggestion(mood.name);
 
     return Column(
       children: [
@@ -777,10 +867,9 @@ class _SuggestionTile extends StatelessWidget {
   }
 }
 
-// ---------- MUSIC CARD ----------
-
 class _MusicCard extends StatelessWidget {
   final MusicItem item;
+
   const _MusicCard({required this.item});
 
   @override
@@ -916,7 +1005,6 @@ class _MusicCard extends StatelessWidget {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    // TODO: hook up url_launcher to open item.externalLink.
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -940,7 +1028,11 @@ class _MusicCard extends StatelessWidget {
 class _CoverArt extends StatelessWidget {
   final MusicItem item;
   final double size;
-  const _CoverArt({required this.item, required this.size});
+
+  const _CoverArt({
+    required this.item,
+    required this.size,
+  });
 
   @override
   Widget build(BuildContext context) {
