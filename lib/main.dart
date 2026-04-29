@@ -379,7 +379,7 @@ class _MoodGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 0.95,
+        childAspectRatio: 0.82,
       ),
       itemBuilder: (context, index) {
         final mood = kMoods[index];
@@ -440,19 +440,26 @@ class _MoodGrid extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                Text(
-                  mood.name,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    mood.name,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   mood.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     height: 1.3,
                     color: Colors.white,
                   ),
