@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
-import 'mood_store.dart';
-import 'stats_screen.dart';
-import 'history_screen.dart';
-import 'profile_screen.dart';
 
-void main() {
+import 'models/music_item.dart';
+import 'services/music_recommendation_service.dart';
+import 'stores/mood_store.dart';
+import 'screens/stats_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/profile_screen.dart';
+
+Future<void> main() async {
+  // Required before touching any platform plugin (SharedPreferences here).
+  WidgetsFlutterBinding.ensureInitialized();
+  // Load persisted moods BEFORE the first frame so screens render with data.
+  await MoodStore.instance.load();
   runApp(const MoodFlowApp());
 }
 
@@ -17,39 +24,28 @@ class MoodFlowApp extends StatelessWidget {
       title: 'MoodFlow',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        fontFamily: 'Arial',
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFFAF8FF),
+        colorSchemeSeed: const Color(0xFF6B3FD6),
       ),
       home: const MainScaffold(),
     );
   }
 }
 
-// ---------- MODELLER ----------
+// ---------- MOOD MODEL ----------
 
 class Mood {
   final String name;
   final String description;
-  final String imageUrl;
+  final IconData icon;
+  final List<Color> gradient;
 
   const Mood({
     required this.name,
     required this.description,
-    required this.imageUrl,
-  });
-}
-
-class MusicItem {
-  final String title;
-  final String subtitle;
-  final String imageUrl;
-  final String mood;
-
-  const MusicItem({
-    required this.title,
-    required this.subtitle,
-    required this.imageUrl,
-    required this.mood,
+    required this.icon,
+    required this.gradient,
   });
 }
 
@@ -57,54 +53,30 @@ const kMoods = <Mood>[
   Mood(
     name: 'Calm',
     description: 'Soft, peaceful, relaxed',
-    imageUrl:
-        'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80',
+    icon: Icons.spa_rounded,
+    gradient: [Color(0xFF7C4DFF), Color(0xFF5E35B1)],
   ),
   Mood(
     name: 'Happy',
     description: 'Bright, positive, uplifting',
-    imageUrl:
-        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+    icon: Icons.wb_sunny_rounded,
+    gradient: [Color(0xFFFFB74D), Color(0xFFFF7043)],
   ),
   Mood(
     name: 'Melancholic',
     description: 'Emotional, reflective, slow',
-    imageUrl:
-        'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=800&q=80',
+    icon: Icons.water_drop_rounded,
+    gradient: [Color(0xFF5C6BC0), Color(0xFF3949AB)],
   ),
   Mood(
     name: 'Energetic',
     description: 'Fast, active, motivated',
-    imageUrl:
-        'https://images.unsplash.com/photo-1549476464-37392f717541?auto=format&fit=crop&w=800&q=80',
+    icon: Icons.bolt_rounded,
+    gradient: [Color(0xFFFF6F61), Color(0xFFD81B60)],
   ),
 ];
 
-const kMusic = <MusicItem>[
-  MusicItem(
-    title: 'Deep Focus',
-    subtitle: 'Ambient · 50 tracks',
-    imageUrl:
-        'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=400&q=80',
-    mood: 'Calm',
-  ),
-  MusicItem(
-    title: 'Peaceful Piano',
-    subtitle: 'Piano · 32 tracks',
-    imageUrl:
-        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80',
-    mood: 'Calm',
-  ),
-  MusicItem(
-    title: 'Nature Sounds',
-    subtitle: 'Relaxation · 40 tracks',
-    imageUrl:
-        'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=400&q=80',
-    mood: 'Calm',
-  ),
-];
-
-// ---------- ANA SCAFFOLD (BOTTOM NAV) ----------
+// ---------- MAIN SCAFFOLD (BOTTOM NAV) ----------
 
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
@@ -116,9 +88,7 @@ class MainScaffold extends StatefulWidget {
 class _MainScaffoldState extends State<MainScaffold> {
   int _currentIndex = 0;
 
-  void _goTo(int index) {
-    setState(() => _currentIndex = index);
-  }
+  void _goTo(int index) => setState(() => _currentIndex = index);
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +140,6 @@ class _BottomNav extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           for (var i = 0; i < items.length; i++)
             _NavItem(
@@ -200,7 +169,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF6B3FD6) : const Color(0xFF2F2D3B);
+    final color = active ? const Color(0xFF6B3FD6) : const Color(0xFF8C8AA0);
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -215,7 +184,7 @@ class _NavItem extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 fontSize: 12,
-                fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                fontWeight: active ? FontWeight.bold : FontWeight.w500,
               ),
             ),
           ],
@@ -245,15 +214,17 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _saveMood() {
-    final mood = kMoods[selectedMoodIndex];
-    MoodStore.instance.add(
-      MoodEntry(
+  Mood get _selectedMood => kMoods[selectedMoodIndex];
+
+  Future<void> _saveMood() async {
+    final mood = _selectedMood;
+    await MoodStore.instance.add(
+      MoodEntry.create(
         moodName: mood.name,
         note: journalController.text.trim(),
-        createdAt: DateTime.now(),
       ),
     );
+    if (!mounted) return;
     journalController.clear();
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -264,29 +235,642 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openMusicDetail(MusicItem item) {
-    showModalBottomSheet(
+  @override
+  Widget build(BuildContext context) {
+    final mood = _selectedMood;
+    final musicItems =
+        MusicRecommendationService.instance.getMusicForMood(mood.name);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Header(onOpenProfile: widget.onOpenProfile),
+          const SizedBox(height: 28),
+          const _Intro(),
+          const SizedBox(height: 24),
+          _MoodGrid(
+            selectedIndex: selectedMoodIndex,
+            onSelect: (i) => setState(() => selectedMoodIndex = i),
+          ),
+          const SizedBox(height: 30),
+          _SectionTitle('Daily Journal', Icons.notes_rounded),
+          const SizedBox(height: 12),
+          _JournalBox(controller: journalController),
+          const SizedBox(height: 16),
+          _SaveMoodButton(onPressed: _saveMood),
+          const SizedBox(height: 28),
+          _SectionTitle('Suggestions for you', Icons.auto_awesome_rounded),
+          const SizedBox(height: 12),
+          _MoodSuggestions(
+            mood: mood,
+            onUsePrompt: (prompt) {
+              journalController.text = prompt;
+              journalController.selection = TextSelection.collapsed(
+                offset: prompt.length,
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Prompt added to your journal'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 28),
+          _SectionTitle(
+            'Music for ${mood.name.toLowerCase()} mood',
+            Icons.music_note_rounded,
+          ),
+          const SizedBox(height: 12),
+          for (final item in musicItems)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _MusicCard(item: item),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------- HOME PIECES ----------
+
+class _Header extends StatelessWidget {
+  final VoidCallback onOpenProfile;
+  const _Header({required this.onOpenProfile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          'MoodFlow',
+          style: TextStyle(
+            fontSize: 29,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF14133B),
+          ),
+        ),
+        InkWell(
+          onTap: onOpenProfile,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE5DFFF)),
+            ),
+            child: const Icon(Icons.person_outline_rounded),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Intro extends StatelessWidget {
+  const _Intro();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'How are you\nfeeling today?',
+          style: TextStyle(
+            fontSize: 36,
+            height: 1.08,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF161633),
+          ),
+        ),
+        SizedBox(height: 12),
+        Text(
+          'Choose your mood and get personalized music + self-care suggestions.',
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.5,
+            color: Color(0xFF6F6B80),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MoodGrid extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+  const _MoodGrid({required this.selectedIndex, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      itemCount: kMoods.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.95,
+      ),
+      itemBuilder: (context, index) {
+        final mood = kMoods[index];
+        final isSelected = selectedIndex == index;
+        return GestureDetector(
+          onTap: () => onSelect(index),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: mood.gradient,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: mood.gradient.last.withOpacity(isSelected ? 0.4 : 0.18),
+                  blurRadius: isSelected ? 22 : 12,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+              border: Border.all(
+                color: isSelected ? Colors.white : Colors.transparent,
+                width: 3,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.22),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(mood.icon, color: Colors.white),
+                    ),
+                    if (isSelected)
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 18,
+                          color: mood.gradient.last,
+                        ),
+                      ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  mood.name,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  mood.description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.3,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  const _SectionTitle(this.title, this.icon);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFF6B3FD6)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 21,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF171733),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _JournalBox extends StatelessWidget {
+  final TextEditingController controller;
+  const _JournalBox({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFEDE8FF)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        maxLines: 4,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintText: 'Write a few words about your mood...',
+          hintStyle: TextStyle(color: Color(0xFF8D889A)),
+        ),
+      ),
+    );
+  }
+}
+
+class _SaveMoodButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _SaveMoodButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF7C4DFF), Color(0xFF5E35B1)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6B3FD6).withOpacity(0.3),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        icon: const Icon(Icons.bookmark_rounded),
+        label: const Text(
+          'Save Mood',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------- MOOD SUGGESTIONS ----------
+
+class _MoodSuggestions extends StatelessWidget {
+  final Mood mood;
+  final ValueChanged<String> onUsePrompt;
+
+  const _MoodSuggestions({required this.mood, required this.onUsePrompt});
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = MusicRecommendationService.instance;
+    final selfCare = svc.getSelfCareSuggestion(mood.name);
+    final prompt = svc.getJournalingPrompt(mood.name);
+    final breath = svc.getBreathingSuggestion(mood.name);
+
+    return Column(
+      children: [
+        _SuggestionTile(
+          icon: Icons.favorite_border_rounded,
+          title: 'Self-care',
+          body: selfCare,
+          color: const Color(0xFFFF7E6B),
+          onTap: () => _showInfoSheet(
+            context,
+            title: 'Self-care for ${mood.name.toLowerCase()} mood',
+            body: selfCare,
+            color: const Color(0xFFFF7E6B),
+            icon: Icons.favorite_border_rounded,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SuggestionTile(
+          icon: Icons.edit_note_rounded,
+          title: 'Journaling prompt',
+          body: prompt,
+          color: const Color(0xFF6B3FD6),
+          trailingLabel: 'Use',
+          onTap: () => onUsePrompt(prompt),
+        ),
+        const SizedBox(height: 10),
+        _SuggestionTile(
+          icon: Icons.air_rounded,
+          title: breath.title,
+          body: breath.steps,
+          color: const Color(0xFF1687A7),
+          onTap: () => _showInfoSheet(
+            context,
+            title: breath.title,
+            body: '${breath.steps}\n\n${breath.description}',
+            color: const Color(0xFF1687A7),
+            icon: Icons.air_rounded,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showInfoSheet(
+    BuildContext context, {
+    required String title,
+    required String body,
+    required Color color,
+    required IconData icon,
+  }) {
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) => Padding(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.network(
-                item.imageUrl,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(18),
               ),
+              child: Icon(icon, color: color, size: 28),
             ),
             const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              body,
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.55,
+                color: Color(0xFF4A4761),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SuggestionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+  final Color color;
+  final VoidCallback onTap;
+  final String? trailingLabel;
+
+  const _SuggestionTile({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.color,
+    required this.onTap,
+    this.trailingLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF171733),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      body,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: Color(0xFF6F6B80),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailingLabel != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    trailingLabel!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------- MUSIC CARD ----------
+
+class _MusicCard extends StatelessWidget {
+  final MusicItem item;
+  const _MusicCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: () => _openDetail(context),
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              _CoverArt(item: item, size: 64),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF171733),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF777184),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: item.gradient.last.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        item.mood,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: item.gradient.last,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => _showPlayingSnack(context),
+                icon: Icon(
+                  Icons.play_arrow_rounded,
+                  color: item.gradient.last,
+                  size: 28,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPlayingSnack(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Playing "${item.title}" (demo)'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _openDetail(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: _CoverArt(item: item, size: 180)),
+            const SizedBox(height: 18),
             Text(
               item.title,
               style: const TextStyle(
@@ -305,17 +889,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${item.title} playing.. (demo)'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  _showPlayingSnack(context);
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text('Play Now'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6B3FD6),
+                  backgroundColor: item.gradient.last,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -324,440 +903,69 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+            if (item.externalLink != null) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    // TODO: hook up url_launcher to open item.externalLink.
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Open link: ${item.externalLink}'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: const Text('Open in music app'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+class _CoverArt extends StatelessWidget {
+  final MusicItem item;
+  final double size;
+  const _CoverArt({required this.item, required this.size});
 
   @override
   Widget build(BuildContext context) {
-    final selectedMood = kMoods[selectedMoodIndex];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(22, 18, 22, 30),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header(),
-          const SizedBox(height: 28),
-          _intro(),
-          const SizedBox(height: 24),
-          _moodGrid(),
-          const SizedBox(height: 30),
-          _sectionTitle('Daily Journal', Icons.notes_rounded),
-          const SizedBox(height: 12),
-          _journalBox(),
-          const SizedBox(height: 22),
-          _saveButton(),
-          const SizedBox(height: 32),
-          _selectedMoodCard(selectedMood),
-          const SizedBox(height: 26),
-          _sectionTitle('Recommended for you', Icons.music_note_rounded),
-          const SizedBox(height: 14),
-          ...kMusic.map((item) => _musicCard(item)),
-        ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size > 100 ? 24 : 18),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: item.gradient,
+          ),
+        ),
+        child: item.imageUrl != null
+            ? Image.network(
+                item.imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _iconFallback(),
+              )
+            : _iconFallback(),
       ),
     );
   }
 
-  Widget _header() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          'MoodFlow',
-          style: TextStyle(
-            fontSize: 29,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF14133B),
-          ),
-        ),
-        InkWell(
-          onTap: widget.onOpenProfile,
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE5DFFF)),
-            ),
-            child: const Icon(Icons.person_outline_rounded),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _intro() {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'How are you\nfeeling today?',
-          style: TextStyle(
-            fontSize: 36,
-            height: 1.08,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF161633),
-          ),
-        ),
-        SizedBox(height: 12),
-        Text(
-          'Choose your mood and get personalized music suggestions.',
-          style: TextStyle(
-            fontSize: 16,
-            height: 1.5,
-            color: Color(0xFF6F6B80),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _moodGrid() {
-    return GridView.builder(
-      itemCount: kMoods.length,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 18,
-        mainAxisSpacing: 18,
-        childAspectRatio: 0.82,
-      ),
-      itemBuilder: (context, index) {
-        final mood = kMoods[index];
-        final isSelected = selectedMoodIndex == index;
-
-        return GestureDetector(
-          onTap: () {
-            setState(() => selectedMoodIndex = index);
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-              border: Border.all(
-                color: isSelected ? Colors.white : Colors.transparent,
-                width: 3,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(mood.imageUrl, fit: BoxFit.cover),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.05),
-                          Colors.black.withOpacity(0.75),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 14,
-                    right: 14,
-                    child: Container(
-                      width: 25,
-                      height: 25,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        color: isSelected
-                            ? Colors.white
-                            : Colors.white.withOpacity(0.1),
-                      ),
-                      child: isSelected
-                          ? const Icon(
-                              Icons.check,
-                              size: 16,
-                              color: Color(0xFF6B3FD6),
-                            )
-                          : null,
-                    ),
-                  ),
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 18,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          mood.name,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          mood.description,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            height: 1.35,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _sectionTitle(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFF6B3FD6)),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 23,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF171733),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _journalBox() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
+  Widget _iconFallback() {
+    return Center(
+      child: Icon(
+        item.icon,
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFEDE8FF)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: journalController,
-        maxLines: 5,
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          hintText: 'Write a few words about your mood...',
-          hintStyle: TextStyle(color: Color(0xFF8D889A)),
-        ),
-      ),
-    );
-  }
-
-  Widget _saveButton() {
-    return Container(
-      width: double.infinity,
-      height: 58,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF7C4DFF), Color(0xFF5E35B1)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6B3FD6).withOpacity(0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ElevatedButton.icon(
-        onPressed: _saveMood,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-        ),
-        icon: const Icon(Icons.bookmark_rounded),
-        label: const Text(
-          'Save Mood',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-
-  Widget _selectedMoodCard(Mood mood) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFE4DCFF)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 66,
-            height: 66,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF7C4DFF), Color(0xFF4527A0)],
-              ),
-            ),
-            child: const Icon(
-              Icons.music_note_rounded,
-              color: Colors.white,
-              size: 34,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              'Good choice!\n${mood.name} vibes. Let’s enjoy some peaceful tunes.',
-              style: const TextStyle(
-                fontSize: 16,
-                height: 1.45,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF22203A),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _musicCard(MusicItem item) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        child: InkWell(
-          onTap: () => _openMusicDetail(item),
-          borderRadius: BorderRadius.circular(24),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: Image.network(
-                    item.imageUrl,
-                    width: 74,
-                    height: 74,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF171733),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        item.subtitle,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF777184),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDFF7FF),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          item.mood,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF1687A7),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${item.title} playing.. (demo)'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFFEDE5FF),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    fixedSize: const Size(44, 44),
-                  ),
-                  icon: const Icon(
-                    Icons.play_arrow_rounded,
-                    color: Color(0xFF6B3FD6),
-                    size: 30,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        size: size * 0.4,
       ),
     );
   }

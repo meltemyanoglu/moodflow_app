@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'mood_store.dart';
+import '../stores/mood_store.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -228,8 +228,9 @@ class ProfileScreen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              MoodStore.instance.clear();
+            onPressed: () async {
+              await MoodStore.instance.clear();
+              if (!context.mounted) return;
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
