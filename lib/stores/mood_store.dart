@@ -10,16 +10,23 @@ export '../models/mood_entry.dart';
 
 /// In-memory + SharedPreferences-backed singleton store for mood entries.
 ///
-/// Always call `await MoodStore.instance.load()` once in `main()` BEFORE
-/// `runApp(...)`. After that the rest of the app can read entries
-/// synchronously and listen for changes via `AnimatedBuilder`.
+/// User-scoped: each user has their own storage bucket
+/// (`mood_entries_v1_<userId>`). Call [setUser] right after login/signup
+/// to switch the bucket; data of one user never leaks into another.
+///
+/// Lifecycle:
+///   1. AuthService.init() resolves current user
+///   2. MoodStore.instance.setUser(userId) → loads that user's entries
+///   3. App renders
+///   4. On logout, AuthGate calls setUser(null) → in-memory list cleared
 class MoodStore extends ChangeNotifier {
   MoodStore._();
   static final MoodStore instance = MoodStore._();
 
-  static const String _storageKey = 'mood_entries_v1';
+  static const _keyPrefix = 'mood_entries_v1_';
 
   final List<MoodEntry> _entries = [];
+  String? _userId;
   bool _loaded = false;
 
   /// Public read-only view, sorted newest-first.
@@ -27,10 +34,27 @@ class MoodStore extends ChangeNotifier {
   int get totalCount => _entries.length;
   bool get isEmpty => _entries.isEmpty;
   bool get isLoaded => _loaded;
+  String? get currentUserId => _userId;
 
-  /// Load entries from disk. Idempotent — safe to call multiple times.
-  Future<void> load() async {
-    if (_loaded) return;
+  String get _storageKey => '$_keyPrefix${_userId ?? "guest"}';
+
+  /// Switch to a different user (or null for "no one logged in").
+  /// Loads that user's entries from disk.
+  Future<void> setUser(String? userId) async {
+    if (_userId == userId && _loaded) return;
+    _userId = userId;
+    _loaded = false;
+    _entries.clear();
+    if (userId == null) {
+      // No one logged in — clear and notify, no need to read disk.
+      _loaded = true;
+      notifyListeners();
+      return;
+    }
+    await _loadFromStorage();
+  }
+
+  Future<void> _loadFromStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_storageKey);
@@ -44,13 +68,11 @@ class MoodStore extends ChangeNotifier {
                     (m) => MoodEntry.fromJson(Map<String, dynamic>.from(m)),
                   ),
             );
-          // Make sure newest-first invariant holds even if older app
-          // versions saved them differently.
           _entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         }
       }
     } catch (e) {
-      debugPrint('MoodStore.load error: $e');
+      debugPrint('MoodStore._loadFromStorage error: $e');
     } finally {
       _loaded = true;
       notifyListeners();
@@ -58,11 +80,10 @@ class MoodStore extends ChangeNotifier {
   }
 
   Future<void> _persist() async {
+    if (_userId == null) return; // Don't write to disk when no one is logged in.
     try {
       final prefs = await SharedPreferences.getInstance();
-      final encoded = jsonEncode(
-        _entries.map((e) => e.toJson()).toList(),
-      );
+      final encoded = jsonEncode(_entries.map((e) => e.toJson()).toList());
       await prefs.setString(_storageKey, encoded);
     } catch (e) {
       debugPrint('MoodStore._persist error: $e');
@@ -75,11 +96,10 @@ class MoodStore extends ChangeNotifier {
     await _persist();
   }
 
-  /// Stable removal by id — never use list index for delete.
   Future<void> removeById(String id) async {
-    final removed = _entries.length;
+    final before = _entries.length;
     _entries.removeWhere((e) => e.id == id);
-    if (_entries.length != removed) {
+    if (_entries.length != before) {
       notifyListeners();
       await _persist();
     }
@@ -94,7 +114,6 @@ class MoodStore extends ChangeNotifier {
 
   // ---------------- DERIVED STATS ----------------
 
-  /// Mood → percentage of total.
   Map<String, double> distributionPercent() {
     if (_entries.isEmpty) return {};
     final counts = <String, int>{};
@@ -111,8 +130,6 @@ class MoodStore extends ChangeNotifier {
     return dist.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
 
-  /// Number of entries logged on each of the last 7 days.
-  /// Index 0 = 6 days ago. Index 6 = today.
   List<int> last7DaysCounts() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -129,7 +146,6 @@ class MoodStore extends ChangeNotifier {
     return counts;
   }
 
-  /// Consecutive days with at least one entry, ending today.
   int currentStreak() {
     if (_entries.isEmpty) return 0;
     final now = DateTime.now();

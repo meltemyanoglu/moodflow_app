@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../services/auth_service.dart';
 import '../stores/mood_store.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -6,9 +8,16 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to BOTH the auth service (so the avatar/name updates after
+    // signup) and the mood store (so totals refresh as entries are added).
     return AnimatedBuilder(
-      animation: MoodStore.instance,
+      animation: Listenable.merge([
+        LocalAuthService.instance,
+        MoodStore.instance,
+      ]),
       builder: (context, _) {
+        final auth = LocalAuthService.instance;
+        final user = auth.currentUser;
         final store = MoodStore.instance;
         final total = store.totalCount;
         final mostFrequent = store.mostFrequentMood() ?? '-';
@@ -23,13 +32,29 @@ class ProfileScreen extends StatelessWidget {
             ),
             backgroundColor: Colors.transparent,
             elevation: 0,
+            actions: [
+              IconButton(
+                tooltip: 'Sign out',
+                icon: const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFF6B3FD6),
+                ),
+                onPressed: user == null
+                    ? null
+                    : () => _confirmSignOut(context),
+              ),
+            ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(22, 8, 22, 30),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _profileCard(),
+                _profileCard(user),
+                if (user?.isAnonymous ?? false) ...[
+                  const SizedBox(height: 12),
+                  _guestUpgradeCard(context),
+                ],
                 const SizedBox(height: 22),
                 Row(
                   children: [
@@ -60,7 +85,8 @@ class ProfileScreen extends StatelessWidget {
                 _settingsTile(
                   icon: Icons.notifications_outlined,
                   title: 'Notifications',
-                  onTap: () => _showSnack(context, 'Notification settings (demo)'),
+                  onTap: () =>
+                      _showSnack(context, 'Notification settings (demo)'),
                 ),
                 _settingsTile(
                   icon: Icons.color_lens_outlined,
@@ -74,9 +100,8 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 22),
                 OutlinedButton.icon(
-                  onPressed: total == 0
-                      ? null
-                      : () => _confirmReset(context),
+                  onPressed:
+                      total == 0 ? null : () => _confirmReset(context),
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('Reset All Data'),
                   style: OutlinedButton.styleFrom(
@@ -88,6 +113,17 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: user == null
+                      ? null
+                      : () => _confirmSignOut(context),
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Sign out'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF6B3FD6),
+                  ),
+                ),
               ],
             ),
           ),
@@ -96,7 +132,15 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _profileCard() {
+  Widget _profileCard(dynamic user) {
+    final displayName =
+        (user?.displayName as String?) ?? 'Welcome';
+    final email = (user?.email as String?) ?? 'Not signed in';
+    final isAnon = (user?.isAnonymous as bool?) ?? false;
+    final initial = displayName.isNotEmpty
+        ? displayName.characters.first.toUpperCase()
+        : '?';
+
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -104,34 +148,97 @@ class ProfileScreen extends StatelessWidget {
           colors: [Color(0xFF7C4DFF), Color(0xFF5E35B1)],
         ),
         borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C4DFF).withOpacity(0.25),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 32,
-            backgroundColor: Colors.white24,
-            child: Icon(Icons.person, color: Colors.white, size: 36),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white30),
+            ),
+            alignment: Alignment.center,
+            child: isAnon
+                ? const Icon(Icons.person, color: Colors.white, size: 32)
+                : Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Meltem',
-                  style: TextStyle(
+                  displayName,
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'meltemyanoglu@gmail.com',
-                  style: TextStyle(color: Colors.white70),
+                  isAnon ? 'Guest account' : email,
+                  style: const TextStyle(color: Colors.white70),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown when the current user is anonymous — encourages account creation
+  /// before they lose their data on a different device.
+  Widget _guestUpgradeCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF6E5),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFFE0A3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Color(0xFFCC8400),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              "You're using a guest account. Sign out to create one and "
+              'save your progress.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF7A5C0A),
+                height: 1.4,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _confirmSignOut(context),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFCC8400),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: const Text('Sign up'),
           ),
         ],
       ),
@@ -243,6 +350,37 @@ class ProfileScreen extends StatelessWidget {
               backgroundColor: const Color(0xFFCC4A4A),
             ),
             child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmSignOut(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'Your saved moods stay on this device. You can sign back in '
+          'anytime to access them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await LocalAuthService.instance.signOut();
+              if (!context.mounted) return;
+              Navigator.pop(ctx);
+              // AuthGate listens to auth changes and will swap to LoginScreen.
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF6B3FD6),
+            ),
+            child: const Text('Sign out'),
           ),
         ],
       ),

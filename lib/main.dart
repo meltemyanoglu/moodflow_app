@@ -1,16 +1,78 @@
 import 'package:flutter/material.dart';
 
 import 'models/music_item.dart';
+import 'services/auth_service.dart';
 import 'services/music_recommendation_service.dart';
 import 'stores/mood_store.dart';
+import 'screens/login_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/profile_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await MoodStore.instance.load();
+  // Restore the auth session first; AuthGate then decides what to show.
+  await LocalAuthService.instance.init();
+  // If a user is already logged in, load their mood data immediately so the
+  // first frame of MainScaffold has data.
+  final currentUser = LocalAuthService.instance.currentUser;
+  if (currentUser != null) {
+    await MoodStore.instance.setUser(currentUser.id);
+  }
   runApp(const MoodFlowApp());
+}
+
+/// Decides between [LoginScreen] and [MainScaffold] based on auth state.
+/// Also keeps [MoodStore]'s active user in sync with [LocalAuthService].
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  String? _lastSyncedUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    LocalAuthService.instance.addListener(_syncMoodStore);
+    _lastSyncedUserId = LocalAuthService.instance.currentUser?.id;
+  }
+
+  @override
+  void dispose() {
+    LocalAuthService.instance.removeListener(_syncMoodStore);
+    super.dispose();
+  }
+
+  /// Whenever the logged-in user changes, switch the MoodStore's bucket.
+  void _syncMoodStore() {
+    final newUserId = LocalAuthService.instance.currentUser?.id;
+    if (newUserId == _lastSyncedUserId) return;
+    _lastSyncedUserId = newUserId;
+    MoodStore.instance.setUser(newUserId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: LocalAuthService.instance,
+      builder: (context, _) {
+        final auth = LocalAuthService.instance;
+        if (!auth.isInitialized) {
+          return const Scaffold(
+            backgroundColor: Color(0xFFFAF8FF),
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF6B3FD6)),
+            ),
+          );
+        }
+        return auth.isLoggedIn ? const MainScaffold() : const LoginScreen();
+      },
+    );
+  }
 }
 
 class MoodFlowApp extends StatelessWidget {
@@ -26,7 +88,7 @@ class MoodFlowApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFFAF8FF),
         colorSchemeSeed: const Color(0xFF6B3FD6),
       ),
-      home: const MainScaffold(),
+      home: const AuthGate(),
     );
   }
 }
